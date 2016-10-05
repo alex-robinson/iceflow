@@ -4,83 +4,26 @@
 # PATH options
 objdir = .obj
 srcdir = src
-libdir = libs
+libdir = src/libs
 
 # Command-line options at make call
-env   ?= None      # options: manto,eolo,airaki,iplex
 debug ?= 0 
 
-ifeq ($(env),manto) ## env=manto
+## GFORTRAN OPTIONS ##
+FC  = gfortran
+INC_NC  = -I/opt/local/include
+LIB_NC  = -L/opt/local/lib -lnetcdff -lnetcdf
+INC_COORD = -I/Users/robinson/models/EURICE/coord/.obj
+LIB_COORD = /Users/robinson/models/EURICE/coord/libcoordinates.a
 
-    ## IFORT OPTIONS ##
-    FC  = ifort
-    INC_NC  = -I/home/jalvarez/work/librairies/netcdflib/include
-    LIB_NC  = -L/home/jalvarez/work/librairies/netcdflib/lib -lnetcdf
-    LIB_MKL = -L/opt/intel/mkl/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
+FLAGS  = -I$(objdir) -J$(objdir) $(INC_COORD) $(INC_NC) 
+LFLAGS = $(LIB_COORD) $(LIB_NC)
 
-    FLAGS    = -module $(objdir) -L$(objdir) $(INC_NC)
-    LFLAGS   = $(LIB_NC) $(LIB_MKL)
-
-    DFLAGS   = -vec-report0 -O2 -fp-model precise -i_dynamic 
-    ifeq ($(debug), 1)
-        DFLAGS   = -C -traceback -ftrapuv -fpe0 -check all -vec-report0 -fp-model precise -i_dynamic 
-    endif
-
-else ifeq ($(env),eolo) ## env=eolo
-
-    ## IFORT OPTIONS ##
-    FC  = ifort
-    INC_NC  = -I/home/fispalma22/work/librairies/netcdflib/include
-    LIB_NC  = -L/home/fispalma22/work/librairies/netcdflib/lib -lnetcdf
-    LIB_MKL = -L/opt/intel/mkl/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
-
-    FLAGS    = -module $(objdir) -L$(objdir) $(INC_NC)
-    LFLAGS   = $(LIB_NC) $(LIB_MKL)
-
-    DFLAGS   = -vec-report0 -O2 -fp-model precise
-    ifeq ($(debug), 1)
-        DFLAGS   = -C -traceback -ftrapuv -fpe0 -check all -vec-report0 -fp-model precise
-    endif
-
-else ifeq ($(env),airaki) ## env=airaki
-
-    ## GFORTRAN OPTIONS ##
-    FC  = gfortran
-    INC_NC  = -I/opt/local/include
-    LIB_NC  = -L/opt/local/lib -lnetcdff -lnetcdf
-    INC_COORD = -I/Users/robinson/models/EURICE/coord/.obj
-	LIB_COORD = /Users/robinson/models/EURICE/coord/libcoordinates.a
-
-    FLAGS  = -I$(objdir) -J$(objdir) $(INC_COORD) $(INC_NC) 
-    LFLAGS = $(LIB_COORD) $(LIB_NC)
-
-    DFLAGS = -O3
-    ifeq ($(debug), 1)  # ,underflow
-        DFLAGS   = -w -g -p -ggdb -ffpe-trap=invalid,zero,overflow -fbacktrace -fcheck=all
-    endif
-
-else ifeq ($(env),iplex) ## env=iplex
-
-    ## IFORT OPTIONS ##
-    FC  = ifort
-    INC_NC  = -I/home/robinson/apps/netcdf/netcdf/include
-    LIB_NC  = -L/home/robinson/apps/netcdf/netcdf/lib -lnetcdf
-    LIB_MKL = -L/opt/intel/mkl/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
-
-    FLAGS    = -module $(objdir) -L$(objdir) $(INC_NC)
-    LFLAGS   = $(LIB_NC)
-
-    DFLAGS   = -vec-report0 -O3 -fp-model precise
-    ifeq ($(debug), 1)
-        DFLAGS   = -C -traceback -ftrapuv -fpe0 -check all -vec-report0 -fp-model precise
-    endif
-
-else 
-    
-    ## None ##
-    FC = $(error "Define env")
-
+DFLAGS = -O3
+ifeq ($(debug), 1)   # Debugging options
+    DFLAGS   = -w -g -p -ggdb -ffpe-trap=invalid,zero,overflow,underflow -fbacktrace -fcheck=all
 endif
+
 
 ###############################################
 ##							
@@ -91,19 +34,7 @@ endif
 $(objdir)/nml.o: $(libdir)/nml.f90
 	$(FC) $(DFLAGS) $(FLAGS) -c -o $@ $<
 
-$(objdir)/ncio.o: $(libdir)/ncio/ncio.f90
-	$(FC) $(DFLAGS) $(FLAGS) -c -o $@ $<
-
-$(objdir)/insolation.o: $(libdir)/insol/insolation.f90 $(objdir)/interp1D.o
-	$(FC) $(DFLAGS) $(FLAGS) -c -o $@ $<
-
-$(objdir)/latinhypercube.o: $(libdir)/latinhypercube.f90
-	$(FC) $(DFLAGS) $(FLAGS) -c -o $@ $<
-
-$(objdir)/energy.o: $(srcdir)/energy.f90
-	$(FC) $(DFLAGS) $(FLAGS) -c -o $@ $<
-
-$(objdir)/lithosphere.o: $(srcdir)/lithosphere.f90
+$(objdir)/ncio.o: $(libdir)/ncio.f90
 	$(FC) $(DFLAGS) $(FLAGS) -c -o $@ $<
 
 $(objdir)/stress.o: $(srcdir)/stress.f90
