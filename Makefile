@@ -2,9 +2,10 @@
 .SHELL: /bin/sh
 
 # PATH options
-objdir = .obj
-srcdir = src
-libdir = src/libs
+objdir  = .obj
+srcdir  = src
+libdir  = src/libs
+testdir = tests
 
 # Command-line options at make call
 debug ?= 0 

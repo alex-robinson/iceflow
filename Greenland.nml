@@ -1,0 +1,3 @@
+&iceflow_pars
+    method = "sia"
+/

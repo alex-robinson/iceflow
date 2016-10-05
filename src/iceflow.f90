@@ -3,7 +3,7 @@ module iceflow
 
     use nml 
     
-    ! Add physics modules here 
+    ! == TO DO ==   ! Add physics modules here 
     ! use streamice
 
     implicit none
@@ -38,7 +38,7 @@ module iceflow
 
     private
     public :: iceflow_param_class, iceflow_state_class, iceflow_class
-    public :: iceflow_init, iceflow_update, iceflow_end 
+    public :: iceflow_init, iceflow_init_state, iceflow_update, iceflow_end 
 
 contains
 
@@ -58,21 +58,32 @@ contains
         ! Allocate iceflow arrays 
         call iceflow_alloc(flow%now,nx,ny,nz)
 
+        write(*,*) "iceflow_init:: iceflow object initialized."
+
         return 
 
     end subroutine iceflow_init
 
-    subroutine iceflow_init_state(flow,filename)
+    subroutine iceflow_init_state(flow)
         ! Initialize the state of the iceflow_class variables
         ! (Define inline, load from file, external values, etc)
 
         implicit none 
 
         type(iceflow_class) :: flow 
-        character(len=*)    :: filename 
 
         ! Set initial values 
-        flow%now%mask = 0.0 
+        flow%now%mask  =     1 
+        flow%now%H_ice = 100.0 
+        flow%now%z_srf = 100.0 
+        flow%now%z_bed =   0.0 
+
+        flow%now%vx = 0.0 
+        flow%now%vy = 0.0 
+        flow%now%vz = 0.0 
+
+
+        write(*,*) "iceflow_init_state:: iceflow state initialized."
 
         return 
 
@@ -122,6 +133,21 @@ contains
 
     end subroutine iceflow_update
 
+    subroutine iceflow_end(flow)
+        ! Terminate the iceflow_class object
+        ! (Finalize some calculations, deallocate arrays, etc.)
+
+        implicit none 
+
+        type(iceflow_class) :: flow 
+
+        ! Deallocate iceflow arrays 
+        call iceflow_dealloc(flow%now)
+
+        return 
+
+    end subroutine iceflow_end
+
     subroutine iceflow_par_load(par,filename,init)
         ! Load parameters from namelist file 
 
@@ -134,8 +160,12 @@ contains
         if (present(init)) init_pars = .TRUE. 
  
         ! Load parameter values from file using nml library 
-        call nml_read(filename,"iceflow","method",par%method,init=init_pars)
+        call nml_read(filename,"iceflow_pars","method",par%method,init=init_pars)
         
+
+
+        write(*,*) "iceflow_par_load:: parameters loaded from: "//trim(filename)
+
         return
 
     end subroutine iceflow_par_load
@@ -159,7 +189,10 @@ contains
         allocate(now%vx(nx,ny,nz))
         allocate(now%vy(nx,ny,nz))
         allocate(now%vz(nx,ny,nz))
- 
+        
+
+        write(*,*) "iceflow_alloc:: arrays allocated (nx,ny,nz): ", nx, ny, nz 
+
         return 
     end subroutine iceflow_alloc 
 
