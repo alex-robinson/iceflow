@@ -8,6 +8,7 @@ calculations inside of full ice sheet models.
 
 All dynamics information for a given modeling domain is stored inside of 
 an iceflow object: 
+
 `type(iceflow_class) :: flow`
 
 The module consists of three public subroutines that control the variables

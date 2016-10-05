@@ -10,16 +10,19 @@ module iceflow
     
     ! Define all parameters needed for the yelmo module
     type iceflow_param_class
-        character (len=256) :: name, boundary(30), method
-        integer             :: nx, ny, npts
-        double precision    :: p1, p2 
+        character (len=256) :: method
+
     end type
 
     type iceflow_state_class
         ! Model variables that the define the state of the domain
-        integer,          allocatable, dimension(:,:) :: mask 
-        double precision, allocatable, dimension(:,:) :: x2D, y2D, lon2D, lat2D
-        double precision, allocatable, dimension(:,:) :: zs, zb, zb0 
+
+        ! 2D variables
+        integer, allocatable :: mask(:,:) 
+        real(4), allocatable :: H_ice(:,:), z_srf(:,:), z_bed(:,:)
+
+        ! 3D variables
+        real(4), allocatable :: vx(:,:,:), vy(:,:,:), vz(:,:,:) 
 
     end type
 
@@ -35,76 +38,127 @@ module iceflow
 
     private
     public :: iceflow_param_class, iceflow_state_class, iceflow_class
-    public :: iceflow_par_load
     public :: iceflow_init, iceflow_update, iceflow_end 
+
 contains
 
-    subroutine iceflow_init(flow,nx,ny,nz)
+    subroutine iceflow_init(flow,filename,nx,ny,nz)
+        ! Initialize the iceflow_class object
+        ! (load parameters, allocate arrays, define initial values)
 
         implicit none 
 
         type(iceflow_class) :: flow 
+        character(len=*)    :: filename 
         integer :: nx, ny, nz 
-        
-        call iceflow_alloc(now,nx,ny,nz)
+
+        ! Load iceflow parameters for this domain 
+        call iceflow_par_load(flow%par,filename)
+
+        ! Allocate iceflow arrays 
+        call iceflow_alloc(flow%now,nx,ny,nz)
 
         return 
 
     end subroutine iceflow_init
 
+    subroutine iceflow_init_state(flow,filename)
+        ! Initialize the state of the iceflow_class variables
+        ! (Define inline, load from file, external values, etc)
 
-    subroutine calc_velocity(par,vx,vy,vz)
+        implicit none 
 
-        implicit none
-        
-        type(iceflow_param_class) :: par
+        type(iceflow_class) :: flow 
+        character(len=*)    :: filename 
 
-        double precision, dimension(:,:,:), pointer :: vx, vy, vz
+        ! Set initial values 
+        flow%now%mask = 0.0 
 
-        
+        return 
+
+    end subroutine iceflow_init_state
+
+    subroutine iceflow_update(flow,dt)
+        ! Update the state of the iceflow_class variables
+        ! given new boundary conditions, time step, etc.
+
+        implicit none 
+
+        type(iceflow_class) :: flow 
+        real(4) :: dt  
+
         ! Calculate material properties and viscosity 
-
 
         ! First calculate basal velocity, then 
         ! the horizontal velocity field, then the vertical velocity field
         ! to get full 3D velocity field [vx,vy,vz]
 
-!         call calc_vxy_b_sia(time, z_sl)
-!         call calc_vxy_sia(dzeta_c, dzeta_t)
-!         call calc_vz_sia(dxi, deta, dzeta_c, dzeta_t)
+        if (trim(flow%par%method) .eq. "sia") then 
+            ! Solver using sia 
 
-        ! Next calculate the full strain-rate tensor, 
-        ! the full effective strain rate and the shear fraction
-!         call calc_dxyz(dxi, deta, dzeta_c, dzeta_t)
+            ! == TO DO == 
 
+
+        else if (trim(flow%par%method) .eq. "ssa") then 
+            ! Solve for velocity only using ssa 
+
+            ! == TO DO == 
+
+            
+        else if (trim(flow%par%method) .eq. "sia-ssa") then 
+            ! Solve using hybrid method 
+
+            ! == TO DO == 
+
+            
+        else 
+
+            write(*,*) "iceflow_udpate:: error: solver method not recognized: "//trim(flow%par%method)
+            stop 
+
+        end if 
+
+        return 
+
+    end subroutine iceflow_update
+
+    subroutine iceflow_par_load(par,filename,init)
+        ! Load parameters from namelist file 
+
+        type(iceflow_param_class) :: par
+        character(len=*)    :: filename 
+        logical, optional :: init 
+        logical :: init_pars 
+
+        init_pars = .FALSE.
+        if (present(init)) init_pars = .TRUE. 
+ 
+        ! Load parameter values from file using nml library 
+        call nml_read(filename,"iceflow","method",par%method,init=init_pars)
         
         return
 
-    end subroutine calc_velocity
+    end subroutine iceflow_par_load
 
-    subroutine calc_vxy_b()
-
-        implicit none
-
-
-    end subroutine calc_vxy_b
-
-
-    subroutine iceflow_alloc(now,nx,ny)
+    subroutine iceflow_alloc(now,nx,ny,nz)
 
         implicit none 
 
         type(iceflow_state_class) :: now 
-        integer :: nx, ny  
+        integer :: nx, ny, nz  
 
+        ! Allocate all arrays to proper size
+
+        ! 2D arrays
         allocate(now%mask(nx,ny))
-        allocate(now%x2D(nx,ny))
-        allocate(now%y2D(nx,ny))
-        allocate(now%lon2D(nx,ny))
-        allocate(now%lat2D(nx,ny))
-        allocate(now%zs(nx,ny))
-        allocate(now%zb(nx,ny))
-        allocate(now%zb0(nx,ny))
+        allocate(now%H_ice(nx,ny))
+        allocate(now%z_srf(nx,ny))
+        allocate(now%z_bed(nx,ny))
+
+        ! 3D arrays
+        allocate(now%vx(nx,ny,nz))
+        allocate(now%vy(nx,ny,nz))
+        allocate(now%vz(nx,ny,nz))
  
         return 
     end subroutine iceflow_alloc 
@@ -115,29 +169,13 @@ contains
 
         type(iceflow_state_class) :: now
 
-        deallocate(now%mask,now%x2D,now%y2D,now%lon2D,now%lat2D, &
-                   now%zs,now%zb,now%zb0)
+        ! Deallocate all allocatable arrays
+
+        deallocate(now%mask,now%H_ice,now%z_srf,now%z_bed)
+        deallocate(now%vx,now%vy,now%vz)
 
         return 
 
     end subroutine iceflow_dealloc 
-
-    subroutine iceflow_par_load(par,filename,init)
-
-        type(iceflow_param_class) :: par
-        character(len=*)    :: filename 
-        logical, optional :: init 
-        logical :: init_pars 
-
-        init_pars = .FALSE.
-        if (present(init)) init_pars = .TRUE. 
- 
-        ! Store local parameter values in output object
-        call nml_read(filename,"yelmo_velocity_greve","boundary",  par%boundary,  init=init_pars)
-        call nml_read(filename,"yelmo_velocity_greve","method",    par%method,    init=init_pars)
-        
-        return
-
-    end subroutine iceflow_par_load
 
 end module iceflow
