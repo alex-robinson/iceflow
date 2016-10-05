@@ -11,10 +11,11 @@ an iceflow object:
 
 `type(iceflow_class) :: flow`
 
-The module consists of three public subroutines that control the variables
+The module consists of four public subroutines that control the variables
 of the iceflow object, for initialization, updating and termination, respectively: 
 ```
 call iceflow_init(flow,...)
+call iceflow_init_state(flow)
 call iceflow_update(flow,dt,...)
 call iceflow_end(flow)
 ```
