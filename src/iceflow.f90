@@ -11,18 +11,22 @@ module iceflow
     ! Define all parameters needed for the yelmo module
     type iceflow_param_class
         character (len=256) :: method
+        integer :: mix_method
 
     end type
 
     type iceflow_state_class
         ! Model variables that the define the state of the domain
 
-        ! 2D variables
+        ! Boundary variables
         integer, allocatable :: mask(:,:) 
         real(4), allocatable :: H_ice(:,:), z_srf(:,:), z_bed(:,:)
 
-        ! 3D variables
-        real(4), allocatable :: vx(:,:,:), vy(:,:,:), vz(:,:,:) 
+        ! Dynamics variables
+        real(4), allocatable :: ux_sia(:,:), uy_sia(:,:)
+        real(4), allocatable :: ux_ssa(:,:), uy_ssa(:,:)
+        real(4), allocatable :: f_ssa(:,:)
+        real(4), allocatable :: ux(:,:,:), uy(:,:,:), uz(:,:,:) 
 
     end type
 
@@ -78,9 +82,9 @@ contains
         flow%now%z_srf = 100.0 
         flow%now%z_bed =   0.0 
 
-        flow%now%vx = 0.0 
-        flow%now%vy = 0.0 
-        flow%now%vz = 0.0 
+        flow%now%ux = 0.0 
+        flow%now%uy = 0.0 
+        flow%now%uz = 0.0 
 
 
         write(*,*) "iceflow_init_state:: iceflow state initialized."
@@ -118,9 +122,12 @@ contains
             
         else if (trim(flow%par%method) .eq. "sia-ssa") then 
             ! Solve using hybrid method 
+ 
+            ! 1. Update velocity mixing fraction f_ssa
+            call determine_mixing_fraction(flow%par,flow%now%f_ssa)
 
-            ! == TO DO == 
-
+            ! == TO DO ==
+            
             
         else 
 
@@ -132,7 +139,21 @@ contains
         return 
 
     end subroutine iceflow_update
-
+    
+    subroutine determine_mixing_fraction(par,f_ssa)
+    
+        implicit none
+        
+        type(iceflow_par), intent(IN)  :: par
+        real(4),           intent(OUT) :: f_ssa(:,:)
+        
+        f_ssa = 1.0
+        
+        return
+        
+    end subroutine determine_mixing_fraction
+    
+    
     subroutine iceflow_end(flow)
         ! Terminate the iceflow_class object
         ! (Finalize some calculations, deallocate arrays, etc.)
@@ -184,11 +205,17 @@ contains
         allocate(now%H_ice(nx,ny))
         allocate(now%z_srf(nx,ny))
         allocate(now%z_bed(nx,ny))
-
+        
+        allocate(now%ux_sia(nx,ny))
+        allocate(now%uy_sia(nx,ny))
+        allocate(now%ux_ssa(nx,ny))
+        allocate(now%uy_ssa(nx,ny))
+        allocate(now%f_ssa(nx,ny))
+        
         ! 3D arrays
-        allocate(now%vx(nx,ny,nz))
-        allocate(now%vy(nx,ny,nz))
-        allocate(now%vz(nx,ny,nz))
+        allocate(now%ux(nx,ny,nz))
+        allocate(now%uy(nx,ny,nz))
+        allocate(now%uz(nx,ny,nz))
         
 
         write(*,*) "iceflow_alloc:: arrays allocated (nx,ny,nz): ", nx, ny, nz 
@@ -205,7 +232,10 @@ contains
         ! Deallocate all allocatable arrays
 
         deallocate(now%mask,now%H_ice,now%z_srf,now%z_bed)
-        deallocate(now%vx,now%vy,now%vz)
+        deallocate(now%ux_sia,now%uy_sia)
+        deallocate(now%ux_ssa,now%uy_ssa)
+        deallocate(now%f_ssa)
+        deallocate(now%ux,now%uy,now%uz)
 
         return 
 
