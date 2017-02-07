@@ -12,7 +12,9 @@ module iceflow
     type iceflow_param_class
         character (len=256) :: method
         integer :: mix_method
-
+        
+        integer :: nx, ny, nz
+        
     end type
 
     type iceflow_state_class
@@ -93,17 +95,32 @@ contains
 
     end subroutine iceflow_init_state
 
-    subroutine iceflow_update(flow,dt)
+    subroutine iceflow_update(flow,H_ice,z_srf,z_bed,f_grnd,T_ice,dt)
         ! Update the state of the iceflow_class variables
         ! given new boundary conditions, time step, etc.
-
+        
+        ! Note: input variables are provided on central grid, but
+        ! velocity variables are calculated on staggered grid. 
+        ! Return velocity on central grid?
+        
         implicit none 
 
-        type(iceflow_class) :: flow 
-        real(4) :: dt  
-
+        type(iceflow_class), intent(INOUT) :: flow 
+        real(4), intent(IN) :: H_ice(:,:), z_srf(:,:), z_bed(:,:), f_grnd(:,:)
+        real(4), intent(IN) :: T_ice(:,:,:)
+        real(4), intent(IN) :: dt     ! External timestep to be matched by internal adaptive steps
+        
+        ! Make sure solver choice makes sense
+        if (trim(flow%par%method) .ne. "sia" .or. &
+            trim(flow%par%method) .ne. "ssa" .or. &
+            trim(flow%par%method) .ne. "sia-ssa") then
+            write(*,*) "iceflow_udpate:: error: solver method not recognized: "//trim(flow%par%method)
+            stop 
+        end if
+        
         ! Calculate material properties and viscosity 
-
+        
+        
         ! First calculate basal velocity, then 
         ! the horizontal velocity field, then the vertical velocity field
         ! to get full 3D velocity field [vx,vy,vz]
@@ -126,14 +143,9 @@ contains
             ! 1. Update velocity mixing fraction f_ssa
             call determine_mixing_fraction(flow%par,flow%now%f_ssa)
 
-            ! == TO DO ==
-            
-            
-        else 
+            ! == TO DO == 
 
-            write(*,*) "iceflow_udpate:: error: solver method not recognized: "//trim(flow%par%method)
-            stop 
-
+            
         end if 
 
         return 
