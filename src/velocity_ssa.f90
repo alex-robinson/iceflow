@@ -1,4 +1,4 @@
-module velocity_sia
+module velocity_ssa
 
     implicit none
     
@@ -6,13 +6,13 @@ module velocity_sia
     
     
     private
-    public :: calc_uv_sia
+    public :: calc_uv_ssa
     
 contains
 
-    subroutine calc_uv_sia()
+    subroutine calc_uv_ssa
         ! Calculate the depth integrated horizontal velocity field
-        ! using the SIA approximation
+        ! using the SSA approximation
         
         implicit none
         
@@ -21,12 +21,12 @@ contains
         
         return
         
-    end subroutine calc_uv_sia
+    end subroutine calc_uv_ssa
     
     
-    subroutine calc_vel3D_sia()
+    subroutine calc_vel3D_ssa()
         ! Calculate the 3D velocity field
-        ! using the SIA approximation
+        ! using the SSA approximation
         
         implicit none
         
@@ -35,9 +35,9 @@ contains
         
         return
         
-    end subroutine calc_vel3D_sia
+    end subroutine calc_vel3D_ssa
 
 
 
 
-end module velocity_sia
+end module velocity_ssa
