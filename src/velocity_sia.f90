@@ -24,7 +24,18 @@ contains
     end subroutine calc_uv_ssa
     
     
-
+    subroutine calc_vel3D_ssa()
+        ! Calculate the 3D velocity field
+        ! using the SSA approximation
+        
+        implicit none
+        
+        
+        
+        
+        return
+        
+    end subroutine calc_vel3D_ssa
 
 
 
