@@ -1,34 +1,35 @@
 
 module iceflow
 
-    use nml 
-    
-    ! == TO DO ==   ! Add physics modules here 
+    use nml
+    use solver_advdiff2D
+
+    ! == TO DO ==   ! Add physics modules here
     ! use streamice
 
     implicit none
-    
+
     ! Define all parameters needed for the yelmo module
     type iceflow_param_class
         character (len=256) :: method
         integer :: mix_method
-        
+
         integer :: nx, ny, nz
-        
+        real(4) :: dx, dy, dz
     end type
 
     type iceflow_state_class
         ! Model variables that the define the state of the domain
 
         ! Boundary variables
-        integer, allocatable :: mask(:,:) 
+        integer, allocatable :: mask(:,:)
         real(4), allocatable :: H_ice(:,:), z_srf(:,:), z_bed(:,:)
 
         ! Dynamics variables
         real(4), allocatable :: ux_sia(:,:), uy_sia(:,:)
         real(4), allocatable :: ux_ssa(:,:), uy_ssa(:,:)
         real(4), allocatable :: f_ssa(:,:)
-        real(4), allocatable :: ux(:,:,:), uy(:,:,:), uz(:,:,:) 
+        real(4), allocatable :: ux(:,:,:), uy(:,:,:), uz(:,:,:)
 
     end type
 
@@ -44,29 +45,35 @@ module iceflow
 
     private
     public :: iceflow_param_class, iceflow_state_class, iceflow_class
-    public :: iceflow_init, iceflow_init_state, iceflow_update, iceflow_end 
+    public :: iceflow_init, iceflow_init_state, iceflow_update, iceflow_end
 
 contains
 
-    subroutine iceflow_init(flow,filename,nx,ny,nz)
+    subroutine iceflow_init(flow,filename,nx,ny,nz,dx,dy,dz)
         ! Initialize the iceflow_class object
         ! (load parameters, allocate arrays, define initial values)
 
-        implicit none 
+        implicit none
 
-        type(iceflow_class) :: flow 
-        character(len=*)    :: filename 
-        integer :: nx, ny, nz 
+        type(iceflow_class), intent(OUT) :: flow
+        character(len=*), intent(IN)     :: filename
+        integer, intent(IN) :: nx, ny, nz
+        real(4), intent(IN) :: dx, dy, dz
 
-        ! Load iceflow parameters for this domain 
+        ! Load iceflow parameters for this domain
         call iceflow_par_load(flow%par,filename)
 
-        ! Allocate iceflow arrays 
+        ! Store grid information
+        flow%par%dx = dx
+        flow%par%dy = dy
+        flow%par%dz = dz
+        
+        ! Allocate iceflow arrays
         call iceflow_alloc(flow%now,nx,ny,nz)
 
         write(*,*) "iceflow_init:: iceflow object initialized."
 
-        return 
+        return
 
     end subroutine iceflow_init
 
@@ -74,127 +81,127 @@ contains
         ! Initialize the state of the iceflow_class variables
         ! (Define inline, load from file, external values, etc)
 
-        implicit none 
+        implicit none
 
-        type(iceflow_class) :: flow 
+        type(iceflow_class) :: flow
 
-        ! Set initial values 
-        flow%now%mask  =     1 
-        flow%now%H_ice = 100.0 
-        flow%now%z_srf = 100.0 
-        flow%now%z_bed =   0.0 
+        ! Set initial values
+        flow%now%mask  =     1
+        flow%now%H_ice = 100.0
+        flow%now%z_srf = 100.0
+        flow%now%z_bed =   0.0
 
-        flow%now%ux = 0.0 
-        flow%now%uy = 0.0 
-        flow%now%uz = 0.0 
+        flow%now%ux = 0.0
+        flow%now%uy = 0.0
+        flow%now%uz = 0.0
 
 
         write(*,*) "iceflow_init_state:: iceflow state initialized."
 
-        return 
+        return
 
     end subroutine iceflow_init_state
 
     subroutine iceflow_update(flow,H_ice,z_srf,z_bed,f_grnd,T_ice,dt)
         ! Update the state of the iceflow_class variables
         ! given new boundary conditions, time step, etc.
-        
-        ! Note: input variables are provided on central grid, but
-        ! velocity variables are calculated on staggered grid. 
-        ! Return velocity on central grid?
-        
-        implicit none 
 
-        type(iceflow_class), intent(INOUT) :: flow 
+        ! Note: input variables are provided on central grid, but
+        ! velocity variables are calculated on staggered grid.
+        ! Return velocity on central grid?
+
+        implicit none
+
+        type(iceflow_class), intent(INOUT) :: flow
         real(4), intent(IN) :: H_ice(:,:), z_srf(:,:), z_bed(:,:), f_grnd(:,:)
         real(4), intent(IN) :: T_ice(:,:,:)
         real(4), intent(IN) :: dt     ! External timestep to be matched by internal adaptive steps
-        
+
         ! Make sure solver choice makes sense
         if (trim(flow%par%method) .ne. "sia" .or. &
             trim(flow%par%method) .ne. "ssa" .or. &
             trim(flow%par%method) .ne. "sia-ssa") then
             write(*,*) "iceflow_udpate:: error: solver method not recognized: "//trim(flow%par%method)
-            stop 
+            stop
         end if
-        
-        ! Calculate material properties and viscosity 
-        
-        
-        ! First calculate basal velocity, then 
+
+        ! Calculate material properties and viscosity
+
+
+        ! First calculate basal velocity, then
         ! the horizontal velocity field, then the vertical velocity field
         ! to get full 3D velocity field [vx,vy,vz]
 
-        if (trim(flow%par%method) .eq. "sia") then 
-            ! Solver using sia 
+        if (trim(flow%par%method) .eq. "sia") then
+            ! Solver using sia
 
-            ! == TO DO == 
+            ! == TO DO ==
 
 
-        else if (trim(flow%par%method) .eq. "ssa") then 
-            ! Solve for velocity only using ssa 
+        else if (trim(flow%par%method) .eq. "ssa") then
+            ! Solve for velocity only using ssa
 
-            ! == TO DO == 
+            ! == TO DO ==
 
-            
-        else if (trim(flow%par%method) .eq. "sia-ssa") then 
-            ! Solve using hybrid method 
- 
+
+        else if (trim(flow%par%method) .eq. "sia-ssa") then
+            ! Solve using hybrid method
+
             ! 1. Update velocity mixing fraction f_ssa
             call determine_mixing_fraction(flow%par,flow%now%f_ssa)
 
-            ! == TO DO == 
+            ! == TO DO ==
 
-            
-        end if 
 
-        return 
+        end if
+
+        return
 
     end subroutine iceflow_update
-    
+
     subroutine determine_mixing_fraction(par,f_ssa)
-    
+
         implicit none
-        
-        type(iceflow_par), intent(IN)  :: par
-        real(4),           intent(OUT) :: f_ssa(:,:)
-        
+
+        type(iceflow_param_class), intent(IN)  :: par
+        real(4),                   intent(OUT) :: f_ssa(:,:)
+
         f_ssa = 1.0
-        
+
         return
-        
+
     end subroutine determine_mixing_fraction
-    
-    
+
+
     subroutine iceflow_end(flow)
         ! Terminate the iceflow_class object
         ! (Finalize some calculations, deallocate arrays, etc.)
 
-        implicit none 
+        implicit none
 
-        type(iceflow_class) :: flow 
+        type(iceflow_class) :: flow
 
-        ! Deallocate iceflow arrays 
+        ! Deallocate iceflow arrays
         call iceflow_dealloc(flow%now)
 
-        return 
+        return
 
     end subroutine iceflow_end
 
     subroutine iceflow_par_load(par,filename,init)
-        ! Load parameters from namelist file 
+        ! Load parameters from namelist file
 
         type(iceflow_param_class) :: par
-        character(len=*)    :: filename 
-        logical, optional :: init 
-        logical :: init_pars 
+        character(len=*)    :: filename
+        logical, optional :: init
+        logical :: init_pars
 
         init_pars = .FALSE.
-        if (present(init)) init_pars = .TRUE. 
- 
-        ! Load parameter values from file using nml library 
+        if (present(init)) init_pars = .TRUE.
+
+        ! Load parameter values from file using nml library
         call nml_read(filename,"iceflow_pars","method",par%method,init=init_pars)
-        
+
 
 
         write(*,*) "iceflow_par_load:: parameters loaded from: "//trim(filename)
@@ -205,10 +212,10 @@ contains
 
     subroutine iceflow_alloc(now,nx,ny,nz)
 
-        implicit none 
+        implicit none
 
-        type(iceflow_state_class) :: now 
-        integer :: nx, ny, nz  
+        type(iceflow_state_class) :: now
+        integer :: nx, ny, nz
 
         ! Allocate all arrays to proper size
 
@@ -217,27 +224,27 @@ contains
         allocate(now%H_ice(nx,ny))
         allocate(now%z_srf(nx,ny))
         allocate(now%z_bed(nx,ny))
-        
+
         allocate(now%ux_sia(nx,ny))
         allocate(now%uy_sia(nx,ny))
         allocate(now%ux_ssa(nx,ny))
         allocate(now%uy_ssa(nx,ny))
         allocate(now%f_ssa(nx,ny))
-        
+
         ! 3D arrays
         allocate(now%ux(nx,ny,nz))
         allocate(now%uy(nx,ny,nz))
         allocate(now%uz(nx,ny,nz))
-        
 
-        write(*,*) "iceflow_alloc:: arrays allocated (nx,ny,nz): ", nx, ny, nz 
 
-        return 
-    end subroutine iceflow_alloc 
+        write(*,*) "iceflow_alloc:: arrays allocated (nx,ny,nz): ", nx, ny, nz
+
+        return
+    end subroutine iceflow_alloc
 
     subroutine iceflow_dealloc(now)
 
-        implicit none 
+        implicit none
 
         type(iceflow_state_class) :: now
 
@@ -249,8 +256,8 @@ contains
         deallocate(now%f_ssa)
         deallocate(now%ux,now%uy,now%uz)
 
-        return 
+        return
 
-    end subroutine iceflow_dealloc 
+    end subroutine iceflow_dealloc
 
 end module iceflow

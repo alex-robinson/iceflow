@@ -8,7 +8,7 @@ libdir  = src/libs
 testdir = tests
 
 # Command-line options at make call
-debug ?= 0 
+debug ?= 0
 
 ## GFORTRAN OPTIONS ##
 FC  = gfortran
@@ -17,7 +17,7 @@ LIB_NC  = -L/opt/local/lib -lnetcdff -lnetcdf
 INC_COORD = -I/Users/robinson/models/EURICE/coord/.obj
 LIB_COORD = /Users/robinson/models/EURICE/coord/libcoordinates.a
 
-FLAGS  = -I$(objdir) -J$(objdir) $(INC_COORD) $(INC_NC) 
+FLAGS  = -I$(objdir) -J$(objdir) $(INC_COORD) $(INC_NC)
 LFLAGS = $(LIB_COORD) $(LIB_NC)
 
 DFLAGS = -O3
@@ -27,7 +27,7 @@ endif
 
 
 ###############################################
-##							
+##
 ## Rules for individual libraries or modules
 ##
 ###############################################
@@ -38,22 +38,26 @@ $(objdir)/nml.o: $(libdir)/nml.f90
 $(objdir)/ncio.o: $(libdir)/ncio.f90
 	$(FC) $(DFLAGS) $(FLAGS) -c -o $@ $<
 
-$(objdir)/iceflow.o: $(srcdir)/iceflow.f90 $(objdir)/nml.o
+$(objdir)/iceflow.o: $(srcdir)/iceflow.f90 $(objdir)/nml.o $(objdir)/solver_advdiff2D.o
 	$(FC) $(DFLAGS) $(FLAGS) -c -o $@ $<
+
+$(objdir)/solver_advdiff2D.o: $(srcdir)/solver_advdiff2D.f90
+		$(FC) $(DFLAGS) $(FLAGS) -c -o $@ $<
 
 $(objdir)/viscosity.o: $(srcdir)/viscosity.f90
 	$(FC) $(DFLAGS) $(FLAGS) -c -o $@ $<
 
 ###############################################
-##							
+##
 ## List of files to make library
 ##
 ###############################################
 
-iceflow_obj = $(objdir)/nml.o $(objdir)/ncio.o $(objdir)/iceflow.o
+iceflow_obj = $(objdir)/nml.o $(objdir)/ncio.o $(objdir)/solver_advdiff2D.o \
+				$(objdir)/iceflow.o
 
 ###############################################
-##							
+##
 ## Compilation of complete programs
 ##
 ###############################################
@@ -72,7 +76,7 @@ libiceflow-shared: $(iceflow_obj)
 	@echo "    libiceflow.so is ready."
 	@echo " "
 
-test_iceflow: $(iceflow_obj) 
+test_iceflow: $(iceflow_obj)
 	$(FC) $(DFLAGS) $(FLAGS) -o test_iceflow.x $^ $(testdir)/test_iceflow.f90 $(LFLAGS)
 	@echo " "
 	@echo "    test_iceflow.x is ready."
@@ -91,5 +95,4 @@ usage:
 
 clean:
 	rm -f  *.x $(objdir)/*.o $(objdir)/*.mod gmon.out
-	rm -rf *.x.dSYM   
-
+	rm -rf *.x.dSYM
