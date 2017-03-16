@@ -10,7 +10,7 @@ module velocity_sia
     
 contains
 
-    subroutine calc_uv_sia(par,z_srf,H_ice,dx,dy)
+    subroutine calc_uv_sia(par,z_srf,H_ice,At_int,dx,dy)
         ! Calculate the depth integrated horizontal velocity field
         ! using the SIA approximation
         
@@ -19,6 +19,9 @@ contains
         implicit none
 
         type(grisli_vel_class), intent(INOUT) :: vel
+        real(4), intent(IN) :: z_srf(:,:), H_ice(:,:)
+        real(4), intent(IN) :: At_int(:,:)             ! Depth-integrated rate factor
+        real(4), intent(IN) :: dx, dy 
         
         ! Local variables
         real(4) :: glenexp

@@ -16,6 +16,10 @@ module iceflow
 
         integer :: nx, ny, nz
         real(4) :: dx, dy, dz
+        
+        ! Internal parameters
+        logical :: use_sia, use_ssa 
+        
     end type
 
     type iceflow_state_class
@@ -70,7 +74,23 @@ contains
         
         ! Allocate iceflow arrays
         call iceflow_alloc(flow%now,nx,ny,nz)
-
+        
+         ! Make sure solver choice makes sense
+        if (trim(flow%par%method) .ne. "sia" .or. &
+            trim(flow%par%method) .ne. "ssa" .or. &
+            trim(flow%par%method) .ne. "sia-ssa") then
+            write(*,*) "iceflow_udpate:: error: solver method not recognized: "//trim(flow%par%method)
+            stop
+        end if
+        
+        ! === Set internal parameters ==========
+        
+        ! Set switches to control whether sia/ssa calcs are performed
+        flow%par%use_sia = .FALSE.
+        flow%par%use_ssa = .TRUE. 
+        if (index(trim(flow%par%method), "sia") .gt. 0) flow%par%use_sia = .TRUE.
+        if (index(trim(flow%par%method), "ssa") .gt. 0) flow%par%use_ssa = .TRUE.
+        
         write(*,*) "iceflow_init:: iceflow object initialized."
 
         return
@@ -117,13 +137,7 @@ contains
         real(4), intent(IN) :: T_ice(:,:,:)
         real(4), intent(IN) :: dt     ! External timestep to be matched by internal adaptive steps
 
-        ! Make sure solver choice makes sense
-        if (trim(flow%par%method) .ne. "sia" .or. &
-            trim(flow%par%method) .ne. "ssa" .or. &
-            trim(flow%par%method) .ne. "sia-ssa") then
-            write(*,*) "iceflow_udpate:: error: solver method not recognized: "//trim(flow%par%method)
-            stop
-        end if
+       
 
         ! Calculate material properties and viscosity
 
@@ -132,29 +146,37 @@ contains
         ! the horizontal velocity field, then the vertical velocity field
         ! to get full 3D velocity field [vx,vy,vz]
 
-        if (trim(flow%par%method) .eq. "sia") then
-            ! Solver using sia
+        if (flow%par%use_sia) then
+            ! Solver using sia this timestep
 
             ! == TO DO ==
 
-
-        else if (trim(flow%par%method) .eq. "ssa") then
+        end if 
+        
+        if (flow%par%use_ssa) then
             ! Solve for velocity only using ssa
 
             ! == TO DO ==
 
-
-        else if (trim(flow%par%method) .eq. "sia-ssa") then
-            ! Solve using hybrid method
+        end if 
+        
+        if (trim(flow%par%method) .eq. "sia-ssa") then
+            ! Hybrid method, update the mixing fraction
 
             ! 1. Update velocity mixing fraction f_ssa
             call determine_mixing_fraction(flow%par,flow%now%f_ssa)
 
             ! == TO DO ==
 
-
         end if
-
+        
+        ! Calculate the hybrid velocity fields (2D and 3D) 
+        
+        ! == TO DO ==
+        
+        
+        
+        
         return
 
     end subroutine iceflow_update
