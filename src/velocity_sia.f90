@@ -27,36 +27,46 @@ contains
         real(4) :: glenexp
         real(4), parameter :: INV_4DX = 1.0/(4.0*dx)
         real(4), parameter :: INV_4DY = 1.0/(4.0*dy)
-
+        real(4), allocatable :: sdx(:,:), sdy(:,:), sdx_my(:,:), sdy_mx(:,:)
+        real(4), allocatable :: slope2mx(:,:), slope2my(:,:)
+        integer :: i, j, nx, ny
+        
+        nx = size(z_srf,1)
+        ny = size(z_srf,2)
+        
+        allocate(sdx(nx,ny),sdy(nx,ny))
+        allocate(sdx_my(nx,ny),sdy_mx(nx,ny))
+        allocate(slope2mx(nx,ny),slope2my(nx,ny))
+        
         
         ! 1. Calculate surface slopes =============================
         
         do j=1,ny
         do i=2,nx
-            sdx(i,j)=(s(i,j)-s(i-1,j))/dx
+            sdx(i,j)=(z_srf(i,j)-z_srf(i-1,j))/dx
         end do
         end do
 
         do j=2,ny
         do i=1,nx
-            sdy(i,j)=(s(i,j)-s(i,j-1))/dy
+            sdy(i,j)=(z_srf(i,j)-z_srf(i,j-1))/dy
         end do
         end do
 
         do j=2,ny
         do i=2,nx-1
-            sdxmy(i,j)= ((s(i+1,j)-s(i-1,j))+s(i+1,j-1)-s(i-1,j-1))*inv_4dx
+            sdx_my(i,j)= ((z_srf(i+1,j)-z_srf(i-1,j))+z_srf(i+1,j-1)-z_srf(i-1,j-1))*inv_4dx
         end do
         end do
 
         do j=2,ny-1
         do i=2,nx
-            sdymx(i,j)= ((s(i,j+1)-s(i,j-1))+s(i-1,j+1)-s(i-1,j-1))*inv_4dy
+            sdy_mx(i,j)= ((z_srf(i,j+1)-z_srf(i,j-1))+z_srf(i-1,j+1)-z_srf(i-1,j-1))*inv_4dy
         enddo
         enddo
 
-        slope2mx = sdx**2 + sdymx**2
-        slope2my = sdy**2 + sdxmy**2
+        slope2mx = sdx**2 + sdy_mx**2
+        slope2my = sdy**2 + sdx_my**2
 
         slope2mx(1,:)  = 0.0
         slope2mx(:,1)  = 0.0
@@ -68,11 +78,15 @@ contains
         
         
         ! 2. Calculate SIA sliding via sliding module ===============
+        ! ajr: set to zero for now, sliding maybe should be calculated
+        ! externally for flexibility.
         
-        call sliding_sia_update(sliding_sia1,sed1%now%H,sdx,sdy)
+        !call sliding_sia_update(sliding_sia1,sed1%now%H,sdx,sdy)
+        ddbx = 0.0
+        ddby = 0.0
         
         
-        ! 3. Calculate the SIA diffusive solution ===================
+        ! 3. Calculate the 2D SIA diffusive solution ===================
 
         glenexp=max(0.0,(par%e_glen-1.0)/2.0)
 
