@@ -6,9 +6,9 @@ module iceflow
 
     ! == TO DO ==   ! Add physics modules here
     ! use streamice
-
+    
     implicit none
-
+    
     ! Define all parameters needed for the yelmo module
     type iceflow_param_class
         character (len=256) :: method
@@ -46,7 +46,7 @@ module iceflow
         type(iceflow_state_class) :: now
 
     end type
-
+    
     private
     public :: iceflow_param_class, iceflow_state_class, iceflow_class
     public :: iceflow_init, iceflow_init_state, iceflow_update, iceflow_end

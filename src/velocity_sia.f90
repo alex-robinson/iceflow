@@ -1,5 +1,7 @@
 module velocity_sia
-
+    
+    use iceflow_types
+    
     implicit none
     
     
@@ -10,25 +12,28 @@ module velocity_sia
     
 contains
 
-    subroutine calc_uv_sia(par,z_srf,H_ice,At_int,dx,dy)
+    subroutine calc_diff_sia(ux_sia,uy_sia,diff_mx,diff_my,ddx,ddy,z_srf,H_mx,H_my, &
+                                At_int_mx,At_int_my,is_float,dx,dy,e_glen)
         ! Calculate the depth integrated horizontal velocity field
-        ! using the SIA approximation
-        
-        implicit none
+        ! and intermediate variables using the SIA approximation
         
         implicit none
 
-        type(grisli_vel_class), intent(INOUT) :: vel
-        real(4), intent(IN) :: z_srf(:,:), H_ice(:,:)
-        real(4), intent(IN) :: At_int(:,:)             ! Depth-integrated rate factor
-        real(4), intent(IN) :: dx, dy 
+        real(4), intent(OUT) :: ux_sia(:,:), uy_sia(:,:)
+        real(4), intent(OUT) :: diff_mx(:,:), diff_mx(:,:)
+        real(4), intent(OUT) :: ddx(:,:), ddx(:,:)
+        real(4), intent(IN) :: z_srf(:,:)
+        real(4), intent(IN) :: H_mx(:,:), H_my(:,:)
+        real(4), intent(IN) :: At_int_mx(:,:), At_int_my             ! Depth-integrated rate factor (ie, at surface) - called s2a_mx in grisli
+        ! note: event. staggared values should be determined here locally
+        logical, intent(IN) :: is_float(:,:)
+        real(4), intent(IN) :: dx, dy, e_glen
         
         ! Local variables
-        real(4) :: glenexp
         real(4), parameter :: INV_4DX = 1.0/(4.0*dx)
         real(4), parameter :: INV_4DY = 1.0/(4.0*dy)
         real(4), allocatable :: sdx(:,:), sdy(:,:), sdx_my(:,:), sdy_mx(:,:)
-        real(4), allocatable :: slope2mx(:,:), slope2my(:,:)
+        real(4), allocatable :: slope_mx(:,:), slope_my(:,:)
         integer :: i, j, nx, ny
         
         nx = size(z_srf,1)
@@ -36,7 +41,7 @@ contains
         
         allocate(sdx(nx,ny),sdy(nx,ny))
         allocate(sdx_my(nx,ny),sdy_mx(nx,ny))
-        allocate(slope2mx(nx,ny),slope2my(nx,ny))
+        allocate(slope_mx(nx,ny),slope_my(nx,ny))
         
         
         ! 1. Calculate surface slopes =============================
@@ -65,70 +70,66 @@ contains
         enddo
         enddo
 
-        slope2mx = sdx**2 + sdy_mx**2
-        slope2my = sdy**2 + sdx_my**2
+        slope_mx = (sdx**2 + sdy_mx**2)**0.5
+        slope_my = (sdy**2 + sdx_my**2)**0.5
 
-        slope2mx(1,:)  = 0.0
-        slope2mx(:,1)  = 0.0
-        slope2mx(:,ny) = 0.0
+        slope_mx(1,:)  = 0.0
+        slope_mx(:,1)  = 0.0
+        slope_mx(:,ny) = 0.0
 
-        slope2my(1,:)  = 0.0
-        slope2my(:,1)  = 0.0
-        slope2my(nx,:) = 0.0
-        
-        
-        ! 2. Calculate SIA sliding via sliding module ===============
-        ! ajr: set to zero for now, sliding maybe should be calculated
-        ! externally for flexibility.
-        
-        !call sliding_sia_update(sliding_sia1,sed1%now%H,sdx,sdy)
-        ddbx = 0.0
-        ddby = 0.0
-        
+        slope_my(1,:)  = 0.0
+        slope_my(:,1)  = 0.0
+        slope_my(nx,:) = 0.0
         
         ! 3. Calculate the 2D SIA diffusive solution ===================
-
-        glenexp=max(0.0,(par%e_glen-1.0)/2.0)
-
-        ddy = ((slope2my**glenexp)*(ROG)**par%e_glen) *HMY**(par%e_glen+1)
-        ddx = ((slope2mx**glenexp)*(ROG)**par%e_glen) *HMX**(par%e_glen+1)
-
-
-        ! 4. Calculate deformation speed (ux_sia, uy_sia) =========================
-
-        ! --- y-deformation ------------------
-
-        ! Calculate diffmy, for use with diffusion, multipy with H
-        ! (initially without sliding component)
-        diffmy = ddy*s2a_my(:,:,1)
-        
-        ! Calculate the depth-integrated SIA velocity (without sliding) and basal velocity
-        vel%now%uy_sia = diffmy*(-sdy)
-        uby            = ddby  *(-sdy)
-
-        ! Add basal sliding component to diffmy 
-        diffmy = diffmy + ddby   
-
         
         ! --- x-deformation ------------------
-
-        ! Calculate diffmx, for use with diffusion, multipy with H
-        ! (initially without sliding component)
-        diffmx = ddx*s2a_mx(:,:,1)
         
-        ! Calculate the depth-integrated SIA velocity (without sliding) and basal velocity
-        vel%now%ux_sia = diffmx*(-sdx)
-        ubx            = ddbx  *(-sdx)
-
-        ! Add basal sliding component to diffmx 
-        diffmx = diffmx + ddbx 
+        where (.not. is_float)
         
+            ddx = slope_mx**(e_glen-1.0) * (ROG)**e_glen * H_mx**(e_glen+1.0)
+            
+            ! Calculate diffmx, for use with diffusion, multipy with H
+            ! (initially without sliding component)
+            diff_mx = ddx*At_int_mx
+            
+            ! Calculate the depth-integrated SIA velocity (without sliding) and basal velocity
+            ux_sia = diff_mx*(-sdx)
+            
+        elsewhere
+        
+            ddx    = 0.0
+            diffmx = 0.0
+            ux_sia = 0.0
+            
+        end where
+        
+        ! --- y-deformation ------------------
+        
+        where (.not. is_float)
+        
+            ddy = slope_my**(e_glen-1.0) * (ROG)**e_glen * Hmy**(e_glen+1.0)
+            
+            ! Calculate diffmy, for use with diffusion, multipy with H
+            ! (initially without sliding component)
+            diff_my = ddy*At_int_my
+            
+            ! Calculate the depth-integrated SIA velocity (without sliding) and basal velocity
+            uy_sia = diff_my*(-sdy)
+            
+        elsewhere
+        
+            ddy     = 0.0
+            diff_my = 0.0
+            uy_sia  = 0.0
+            
+        end where
         
         ! 5. Limit the deformational velocity =====================
         ! ajr: this needs revision as diffmx/my will subsequently be inconsistent
-        
-        call limit_vel(vel%now%ux_sia,vel%par%ulim_sia)
-        call limit_vel(vel%now%uy_sia,vel%par%ulim_sia)
+        ! Better: either limit slope in diff calculation, or move this outside of routine
+        !call limit_vel(vel%now%ux_sia,vel%par%ulim_sia)
+        !call limit_vel(vel%now%uy_sia,vel%par%ulim_sia)
         
         return
         
