@@ -11,7 +11,7 @@ module velocity_sia
     public :: calc_uv_sia
     
 contains
-
+    
     subroutine calc_diff_sia(ux_sia,uy_sia,diff_mx,diff_my,ddx,ddy,z_srf,H_mx,H_my, &
                                 At_int_mx,At_int_my,is_float,dx,dy,e_glen)
         ! Calculate the depth integrated horizontal velocity field

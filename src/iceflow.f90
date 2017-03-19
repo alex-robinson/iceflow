@@ -177,22 +177,129 @@ contains
         
         
         
+        ! Calculate some diagnostics
+        
+        ! Calculate the basal to surface velocity ratio, f_vbvs
+        where ( ux(:,:,1)**2+uy(:,:,1)**2 .gt. 0.0) 
+            vel%now%f_vbvs = ((ux(:,:,nz)**2+uy(:,:,nz)**2)**0.5 &
+                                            / (ux(:,:,1)**2+uy(:,:,1)**2)**0.5)
+        elsewhere 
+            ! No ice (or no velocity)
+            vel%now%f_vbvs = 1.0 
+        end where 
+        
+        
         return
 
     end subroutine iceflow_update
+    
+    subroutine iceflow_update_ssa(vel,time)
 
-    subroutine determine_mixing_fraction(par,f_ssa)
+        implicit none 
 
-        implicit none
+        type(grisli_vel_class), intent(INOUT) :: vel
+        real(4), intent(IN) :: time 
 
-        type(iceflow_param_class), intent(IN)  :: par
-        real(4),                   intent(OUT) :: f_ssa(:,:)
+        ! Local variables 
+        real(4) :: dt 
 
-        f_ssa = 1.0
+        ! Get current time step 
+        dt = time - vel%now%time 
 
-        return
+        if (dt .ge. dt_ssa) then 
+            ! Call ssa solver, update the ssa gradient fields 
 
-    end subroutine determine_mixing_fraction
+            ! Store old solution
+            vel%now%ux_ssa_old = vel%now%ux_ssa 
+            vel%now%uy_ssa_old = vel%now%uy_ssa 
+                
+            ! Call the ssa solver
+            call diagnoshelf(vel%now%ux_ssa,vel%now%uy_ssa,vel%now%f_ssa_mx,vel%now%f_ssa_my)
+
+            ! Make an extra iteration at start to equilibrate   
+            ! ajr: probably not needed...                           
+            if ((restart.eq.0).and.(nt.lt.10)) then                                                          
+                call diagnoshelf(vel%now%ux_ssa,vel%now%uy_ssa,vel%now%f_ssa_mx,vel%now%f_ssa_my)
+            end if
+
+            ! Calculate the velocity gradient 
+            if (dt .gt. 0.0) then 
+                vel%now%dux_ssa = (vel%now%ux_ssa - vel%now%ux_ssa_old) / dt
+                vel%now%duy_ssa = (vel%now%uy_ssa - vel%now%uy_ssa_old) / dt
+            else 
+                vel%now%dux_ssa = 0.0 
+                vel%now%duy_ssa = 0.0
+            end if 
+
+            ! =========
+            ! To do: determine dt_ssa as a function of the ssa gradient 
+            ! =========
+
+
+            ! Update the current ssa time
+            vel%now%time = time 
+
+        else 
+            ! Apply ssa gradient 
+
+        end if 
+
+
+        return 
+
+    end subroutine iceflow_update_ssa
+    
+    subroutine iceflow_update_ssa_mixing(vel,z_srf,z_bed,H_ice,H_water,f_grnd,is_grz,f_pmp,time)
+        ! Calculate the fraction of ssa that should be applied in the model
+        ! Updates variables: f_ssa and ssa_active
+        
+        implicit none 
+
+        type(grisli_vel_class), intent(INOUT) :: vel
+        real(4), intent(IN)  :: z_srf(:,:), z_bed(:,:), H_ice(:,:), H_water(:,:), f_grnd(:,:), f_pmp(:,:) 
+        logical, intent(IN)  :: is_grz(:,:)
+        real(4), intent(IN)  :: time 
+
+        !if (time .lt. -105000.0) then
+
+        ! x-direction 
+        call calc_ssa_fraction(vel%par,vel%now%f_ssa_mx,f_grnd,is_grz, &
+                               vel%now%ux_bar,z_srf,H_water,f_pmp,time)
+
+        ! y-direction
+        call calc_ssa_fraction(vel%par,vel%now%f_ssa_my,f_grnd,is_grz, &
+                               vel%now%uy_bar,z_srf,H_water,f_pmp,time)
+        
+        ! central mask
+        call calc_ssa_fraction_centered(vel%par,vel%now%f_ssa,vel%now%f_ssa_mx,vel%now%f_ssa_my)
+
+!         vel%now%f_ssa_mx = vel%now%f_ssa 
+!         vel%now%f_ssa_my = vel%now%f_ssa 
+        
+        ! Determine potentially ssa active regions for computational efficiency
+        vel%now%ssa_active = define_ssa_active(vel%par,z_srf,z_bed,H_ice,H_water,f_grnd,vel%now%f_ssa)
+
+        !else 
+    
+        !   vel%now%f_ssa    =  vel%now%f_ssa
+        !   vel%now%f_ssa_mx =  vel%now%f_ssa_mx
+        !   vel%now%f_ssa_my =  vel%now%f_ssa_my
+
+        !endif
+
+        ! If desired, restrict ssa regions where necessary 
+        if (vel%par%restrict_ssa) then 
+            where ( .not. vel%now%ssa_active ) 
+                vel%now%f_ssa    = 0.0 
+                vel%now%f_ssa_mx = 0.0
+                vel%now%f_ssa_my = 0.0 
+
+            end where 
+        end if 
+
+        return 
+
+    end subroutine iceflow_update_ssa_mixing
 
 
     subroutine iceflow_end(flow)
