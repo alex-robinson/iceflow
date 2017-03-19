@@ -170,14 +170,18 @@ contains
 
         end if
         
-        ! Calculate the hybrid velocity fields (2D and 3D) 
+        ! Calculate the hybrid 2D velocity field
         
         ! == TO DO ==
         
         
         
+        ! Calculate the hybrid 2D velocity field
         
-        ! Calculate some diagnostics
+        call calc_vel3D(flow%now%ux,flow%now%uy,flow%now%uz)
+        
+        
+        ! Finally calculate some diagnostics
         
         ! Calculate the basal to surface velocity ratio, f_vbvs
         where ( ux(:,:,1)**2+uy(:,:,1)**2 .gt. 0.0) 

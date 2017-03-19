@@ -8,12 +8,16 @@ module velocity_3D
 contains
     
     
-    subroutine calc_vel3D()
+    subroutine calc_vel3D(ux,uy,uz)
         ! Calculate the 3D velocity field
         ! using sia, ssa or hybrid method
         
         implicit none
-
+        
+        real(4), intent(OUT) :: ux(:,:,:)
+        real(4), intent(OUT) :: uy(:,:,:)
+        real(4), intent(OUT) :: uz(:,:,:)
+        
         type(grisli_vel_class), intent(INOUT) :: vel
 
         real :: hdd
