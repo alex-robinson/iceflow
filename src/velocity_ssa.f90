@@ -10,7 +10,7 @@ module velocity_ssa
     
 contains
 
-    subroutine calc_uv_ssa
+    subroutine calc_uv_ssa()
         ! Calculate the depth integrated horizontal velocity field
         ! using the SSA approximation
         
